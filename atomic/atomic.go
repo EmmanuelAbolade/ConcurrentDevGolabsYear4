@@ -1,36 +1,39 @@
 package main
 
 import (
-    "fmt"
+	"fmt"
 	"sync"
 	"sync/atomic"
 )
-//Global variables shared between functions --A BAD IDEA
-var wg sync.WaitGroup
 
+//No Global variables shared between functions --A Good IDEA
 
-func addsAtomic(n int, total *atomic.Int64) bool {
-	for i:=0; i< n; i++ {
+func addsAtomic(n int, total *atomic.Int64, wg *sync.WaitGroup) {
+
+	defer wg.Done() //let waitgroup know we have finished
+	for i := 0; i < n; i++ {
 		total.Add(1)
 	}
-	wg.Done() //let waitgroup know we have finished
-	return true
+
 }
 
 func main() {
 
-var total atomic.Int64
+	var total atomic.Int64
+	var wg sync.WaitGroup
 
-	
-	//for loop using range option
-	for i:=range 10 {
+	// Initializing waitgroup BEFORE starting goroutines to prevents race conditions
+	wg.Add(10)
+
+	//for loop using range option (launch 10 goroutines)
+	for i := range 10 {
 		//the waitgroup is used as a barrier
 		// init it to number of go routines
-	        wg.Add(1)
+
 		fmt.Println("go Routine ", i)
-		go addsAtomic(1000,&total)
+		go addsAtomic(1000, &total, &wg)
 	}
 	wg.Wait() //wait here until everyone (10 go routines) is done
-	fmt.Println(total.Load())
-	
+	fmt.Println("Final total:", total.Load())
+
 }
