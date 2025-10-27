@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"time"
 
 	"golang.org/x/sync/semaphore"
 )
@@ -23,6 +24,8 @@ func main() {
 		out        = make([]int, 64)
 	)
 
+	fmt.Printf("Computing with up to %d concurrent workers...\n", maxWorkers)
+	startTime := time.Now()
 	// Compute the output using up to maxWorkers goroutines at a time.
 	for i := range out {
 		// When maxWorkers goroutines are in flight, Acquire blocks until one of the
@@ -38,15 +41,17 @@ func main() {
 		}(i)
 	}
 
-	// Acquire all of the tokens to wait for any remaining workers to finish.
+	// Acquire all the tokens to wait for any remaining workers to finish.
 	//
 	// If you are already waiting for the workers by some other means (such as an
-	// errgroup.Group), you can omit this final Acquire call.
+	// err-group.Group), you can omit this final Acquire call.
 	if err := sem.Acquire(ctx, int64(maxWorkers)); err != nil {
 		log.Printf("Failed to acquire semaphore: %v", err)
 	}
 
-	fmt.Println(out)
+	duration := time.Since(startTime)
+	fmt.Printf("\nCompleted in %v\n", duration)
+	fmt.Println("\nFinal results:", out)
 
 }
 
