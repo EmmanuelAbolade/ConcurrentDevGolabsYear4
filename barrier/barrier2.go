@@ -1,6 +1,5 @@
-
 //Barrier.go Template Code
-//Copyright (C) 2024 Dr. Joseph Kehoe
+//Copyright (C) 2025 Emmanuel Abolade
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,10 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 //--------------------------------------------
-// Author: Joseph Kehoe (Joseph.Kehoe@setu.ie)
-// Created on 30/9/2024
+// Author: Emmanuel abolade (c00288657@setu.ie)
+// Created on 20/10/2025
 // Modified by:
 // Description:
 // A simple barrier implemented using mutex and unbuffered channel
@@ -33,45 +31,47 @@ package main
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-
 // Place a barrier in this function --use Mutex's and Semaphores
-func doStuff(goNum int, arrived *int, max int, wg *sync.WaitGroup, sharedLock *sync.Mutex,theChan chan bool) bool {
+func doSomething(goNum int, arrived *int32, max int, wg *sync.WaitGroup, theChan chan bool) {
+	defer wg.Done()
 	time.Sleep(time.Second)
-	fmt.Println("Part A",goNum)
-	//we wait here until everyone has completed part A
-	sharedLock.Lock()
-	*arrived++
-	if *arrived == max {//last to arrive -signal others to go
-		sharedLock.Unlock()//unlock before any potentially blocking code
-		theChan <-true
-		<-theChan
-	} else {//not all here yet we wait until signal
-		sharedLock.Unlock()//unlock before any potentially blocking code
-		<-theChan
-		theChan <- true //once we get through send signal to next routine to continue
-	}//end of if-else
-	sharedLock.Lock()
-	*arrived--
-	sharedLock.Unlock()
-	fmt.Println("PartB",goNum)
-	wg.Done()
-	return true
-}//end-doStuff
+	fmt.Println("Part A", goNum)
+	// BARRIER: Wait here until everyone has completed Part A
+	// Use atomic instead of mutex for counting
+	count := atomic.AddInt32(arrived, 1)
 
+	if count == int32(max) {
+		// Last to arrive - signal others to go
+		theChan <- true
+		<-theChan
+	} else {
+		// Not all here yet - wait for signal
+		<-theChan
+		theChan <- true // Pass signal to next goroutine
+	}
+
+	// Decrement counter
+	atomic.AddInt32(arrived, -1)
+
+	fmt.Println("Part B", goNum)
+
+} //end-doSomething
 
 func main() {
-	totalRoutines:=10
-	arrived:=0
+	totalRoutines := 10
+	var arrived int32 = 0
 	var wg sync.WaitGroup
 	wg.Add(totalRoutines)
 	//we will need some of these
-	var theLock sync.Mutex
-	theChan := make(chan bool)//use unbuffered channel in place of semaphore
-	for i := range totalRoutines {//create the go Routines here
-		go doStuff(i, &arrived, totalRoutines, &wg, &theLock, theChan)
-	}	
+
+	//var theLock sync.Mutex
+	theChan := make(chan bool)     //use unbuffered channel in place of semaphore
+	for i := range totalRoutines { //create the go Routines here
+		go doSomething(i, &arrived, totalRoutines, &wg, theChan)
+	}
 	wg.Wait() //wait for everyone to finish before exiting
-}//end-main
+} //end-main
